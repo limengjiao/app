@@ -3,22 +3,21 @@ import {
   View,
   Text,
   StyleSheet,
-  Button,
   Image,
   SafeAreaView,
   TouchableOpacity,
-  FlatList,
-  Modal,
-  TextInput,
 } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
 import FontAwesome5 from "react-native-vector-icons/FontAwesome5";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Progress from "react-native-progress";
+import PredictionList from "../components/PredictionList";
+import { useNavigation } from "@react-navigation/native";
 
 const image_avata = require("../../assets/avatar.png");
 
 const SugarRecordingScreen = () => {
+  const navigation = useNavigation();
   // Get Username
   const [username, setUsername] = useState("jnz121");
   useEffect(() => {
@@ -28,108 +27,33 @@ const SugarRecordingScreen = () => {
         setUsername(savedUsername);
       }
     };
-
     loadUsername();
   }, []);
 
-  // Food Intake Prediction
-  const [predictionItems, setPredictionItems] = useState([]);
-  useEffect(() => {
-    const fetchPredictionItems = async () => {
-      try {
-        const url = `http://192.168.1.71:3000/users/${username}/intake-prediction`;
-        const response = await fetch(url);
-        const data = await response.json();
-        if (data.ack === "success") {
-          const predictions = data.predictions.map((item) => ({
-            code: item.food.code,
-            name: item.food.product_name,
-            serving: item.mostFrequentServingCount,
-            image: item.food.img_url,
-            category: item.food.category,
-          }));
-          setPredictionItems(predictions);
-        } else {
-          console.log("Failed to fetch predictions");
-        }
-      } catch (error) {
-        console.log(error);
-      }
-    };
-    if (username && username !== "Guest") {
-      fetchPredictionItems();
-    }
-  }, []);
-
-  //Add intake icon event - modal window
-  const [modalVisible, setModalVisible] = useState(false);
-  const [displayItem, setDisplayItem] = useState(null);
-
-  const addPress = (item) => {
-    setDisplayItem(item);
-    setModalVisible(true);
-  };
-  const renderModalContent = () => (
-    <Modal
-      animationType="slide"
-      transparent={true}
-      visible={modalVisible}
-      onRequestClose={() => {
-        setModalVisible(false);
-      }}
-    >
-      <View style={styles.modalContainer}>
-        <View style={styles.modalView}>
-          {displayItem && (
-            <>
-              <Image
-                style={styles.modalImage}
-                source={{ uri: displayItem.image }}
-              />
-              <Text style={styles.modalText}>{displayItem?.name}</Text>
-              <TextInput style={styles.input} placeholder="Serving size: " />
-              <Button title="Confirm" onPress={() => setModalVisible(false)} />
-            </>
-          )}
-        </View>
-      </View>
-    </Modal>
-  );
-
-  const renderPredictItems = ({ item }) => (
-    <View style={styles.intakePrediction}>
-      <Image style={styles.foodImage} source={{ uri: item.image }} />
-      <View style={styles.foodInfo}>
-        <View style={styles.foodDetails}>
-          <Text style={styles.foodName}>{item.name}</Text>
-          <Text style={styles.foodCategory}>{item.category}</Text>
-        </View>
-        <Text style={styles.foodServing}>{item.serving} Serving</Text>
-        <TouchableOpacity onPress={() => addPress(item)}>
-          <Icon name="plus" size={25} style={styles.plusSymbol} />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
   // Get today's sugar intake amount
   const [sugarIntakeToday, setSugarIntakeToday] = useState(0);
+
   useEffect(() => {
-    const fetchSugarIntake = async () => {
-      try {
-        const url = `http://192.168.1.71:3000/users/${username}/sugar-intake-today`;
-        const response = await fetch(url);
-        const data = await response.json();
-        const roundedSugarIntake = Math.round(data.sugarToday);
-        setSugarIntakeToday(roundedSugarIntake);
-      } catch (error) {
-        console.log(error);
-      }
-    };
     if (username && username !== "Guest") {
       fetchSugarIntake();
     }
   }, [username]);
+
+  const fetchSugarIntake = async () => {
+    try {
+      const url = `http://192.168.1.71:3000/users/${username}/sugar-intake-today`;
+      const response = await fetch(url);
+      const data = await response.json();
+      const roundedSugarIntake = Math.round(data.sugarToday);
+      setSugarIntakeToday(roundedSugarIntake);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const updateSugarToday = async () => {
+    fetchSugarIntake();
+  };
 
   //  Get sugar intake target
   const [sugarTarget, setSugarTarget] = useState(0);
@@ -187,12 +111,10 @@ const SugarRecordingScreen = () => {
           </View>
         </View>
         <Text style={styles.subTitle}>You May Want to Record</Text>
-        <FlatList
-          data={predictionItems}
-          renderItem={renderPredictItems}
-          keyExtractor={(item) => item.code}
+        <PredictionList
+          username={username}
+          onUpdateSugarToday={updateSugarToday}
         />
-        {renderModalContent()}
         <Text style={styles.endText}>
           Not you need? Use scan function to add.
         </Text>
@@ -201,7 +123,11 @@ const SugarRecordingScreen = () => {
         <TouchableOpacity onPress={() => console.log("Home")}>
           <FontAwesome5 name="calendar-day" style={styles.icon} />
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => console.log("Scan")}>
+        <TouchableOpacity
+          onPress={() => {
+            navigation.navigate("ProductScanScreen");
+          }}
+        >
           <Icon name="barcode" style={styles.icon} />
         </TouchableOpacity>
         <TouchableOpacity onPress={() => console.log("Shopping")}>
@@ -317,50 +243,7 @@ const styles = StyleSheet.create({
     marginLeft: 22,
     marginTop: 2,
   },
-  intakePrediction: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
-    marginLeft: 20,
-    marginRight: 20,
-    marginTop: 20,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#FFE4E1",
-    paddingBottom: 15,
-  },
-  foodImage: {
-    width: 50,
-    height: 50,
-    marginLeft: 5,
-    marginRight: 20,
-  },
-  foodInfo: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  foodDetails: {
-    flexDirection: "column",
-    justifyContent: "center",
-    flex: 1,
-  },
-  foodName: {
-    fontSize: 13,
-    color: "#000",
-    flex: 1,
-    lineHeight: 15,
-  },
-  foodCategory: {
-    fontSize: 12,
-    color: "#000",
-    marginTop: 0,
-  },
-  foodServing: {
-    fontSize: 12,
-    color: "#000",
-    marginRight: 10,
-    marginLeft: 10,
-  },
+
   endText: {
     fontSize: 13,
     color: "#000",
@@ -368,38 +251,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 30,
   },
-  plusSymbol: {
-    color: "#ffc1c8",
-    alignSelf: "flex-end",
-    marginLeft: 16,
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-  },
-  modalView: {
-    width: 300,
-    height: 300,
-    backgroundColor: "white",
-    borderRadius: 20,
-    padding: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modalImage: {
-    width: 75,
-    height: 75,
-    marginBottom: 20,
-  },
-  modalText: {
-    fontSize: 15,
-    color: "#000",
-    flex: 1,
-    lineHeight: 15,
-    marginBottom: 15,
-  },
+
   bottomBar: {
     position: "absolute",
     bottom: 0,
