@@ -9,26 +9,16 @@ import {
 } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
 import FontAwesome5 from "react-native-vector-icons/FontAwesome5";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Progress from "react-native-progress";
 import PredictionList from "../components/PredictionList";
 import { useNavigation } from "@react-navigation/native";
+import { useUser } from "../context";
 
 const image_avata = require("../../assets/avatar.png");
 
 const SugarRecordingScreen = () => {
   const navigation = useNavigation();
-  // Get Username
-  const [username, setUsername] = useState("jnz121");
-  useEffect(() => {
-    const loadUsername = async () => {
-      const savedUsername = await AsyncStorage.getItem("username");
-      if (savedUsername) {
-        setUsername(savedUsername);
-      }
-    };
-    loadUsername();
-  }, []);
+  const { username, setUsername } = useUser();
 
   // Get today's sugar intake amount
   const [sugarIntakeToday, setSugarIntakeToday] = useState(0);
